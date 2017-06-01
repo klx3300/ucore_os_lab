@@ -3,6 +3,7 @@ EMPTY	:=
 SPACE	:= $(EMPTY) $(EMPTY)
 SLASH	:= /
 
+QEMU := qemu-system-i386
 V       := @
 #need llvm/cang-3.5+
 #USELLVM := 1
@@ -210,7 +211,7 @@ TARGETS: $(TARGETS)
 qemu-mon: $(UCOREIMG)
 	$(V)$(QEMU)  -no-reboot -monitor stdio -hda $< -serial null
 qemu: $(UCOREIMG)
-	$(V)$(QEMU) -no-reboot -parallel stdio -hda $< -serial null
+	$(V)$(QEMU) -S -no-reboot -parallel stdio -hda $< -serial null
 log: $(UCOREIMG)
 	$(V)$(QEMU) -no-reboot -d int,cpu_reset  -D q.log -parallel stdio -hda $< -serial null
 qemu-nox: $(UCOREIMG)

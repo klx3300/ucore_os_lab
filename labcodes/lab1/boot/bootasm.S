@@ -82,5 +82,5 @@ gdt:
     SEG_ASM(STA_W, 0x0, 0xffffffff)                 # data seg for bootloader and kernel
 
 gdtdesc:
-    .word 0x17                                      # sizeof(gdt) - 1
+    .word gdtdesc-gdt-1                                      # sizeof(gdt) - 1
     .long gdt                                       # address gdt
