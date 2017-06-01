@@ -167,12 +167,23 @@ trap_dispatch(struct trapframe *tf) {
     //LAB1 CHALLENGE 1 : YOUR CODE you should modify below codes.
     case T_SWITCH_TOU:
         if(tf->cs != USER_CS){
+            // construct tmp structure for cpu to recover data with.
             struct trapframe tmp=*tf;
             tmp.cs=USER_CS;
             tmp.tf_ds=tmp.tf_es=tmp.tf_ss=USER_DS;
-            
+            // this operation causes priv level change. cpu will attempt to set esp from this tmp structure.
+            // in this case, we can free the stack space taken by tf by setting the esp to the first of it.
+            // notice tf will not contain esp,ss(their total size is 8) because entrance didn't contain priv level change.
+            tmp.tf_esp=(uint32_t)tf+sizeof(struct trapframe)-8;
+            // set eflags i/o priv bit so that user priv can io.
+            // the magic number here refers to the i/o priv level bits. google for more info.
+            tmp.tf_eflags |= (3<<12);
+            // change the reference to tf to tmp. notice in trapentry.S, after the call to trap func,
+            // it will pop esp. thus what we modified here pop into esp. and then,all data recovers from this tmp structure.
+            // finally, the cpu detected priv change,so the tmp.tf_esp we modified finally becomes the esp value after
+            // the whole process.
+            *((uint32_t*)tf-1)=(uint32_t)&tmp;
         }
-        panic("T_SWITCH_TOU unimplemented.\n");
         break;
     case T_SWITCH_TOK:
         panic("T_SWITCH_TOK unimplemented.\n");
