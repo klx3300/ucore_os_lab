@@ -1,4 +1,5 @@
 #include <defs.h>
+#include <string.h>
 #include <mmu.h>
 #include <memlayout.h>
 #include <clock.h>
@@ -51,6 +52,7 @@ idt_init(void) {
     for(i=0;i<256;i++){
         SETGATE(idt[i],(i==T_SYSCALL),GD_KTEXT,__vectors[i],3*(i==T_SYSCALL));
     }
+    SETGATE(idt[121],0,GD_KTEXT,__vectors[121],3);
     lidt(&idt_pd);
 }
 
@@ -163,13 +165,32 @@ trap_dispatch(struct trapframe *tf) {
     case IRQ_OFFSET + IRQ_KBD:
         c = cons_getc();
         cprintf("kbd [%03d] %c\n", c, c);
+        switch(c){
+            case '3':
+                if(tf->tf_cs != USER_CS){
+                    tf->tf_cs=USER_CS;
+                    tf->tf_ds=tf->tf_es=tf->tf_ss=USER_DS;
+                    tf->tf_eflags|=(3<<12);
+                    print_trapframe(tf);
+                }
+            break;
+            case '0':
+                if(tf->tf_cs != KERNEL_CS){
+                    tf->tf_cs=KERNEL_CS;
+                    tf->tf_ds=tf->tf_es=tf->tf_ss=KERNEL_DS;
+                    tf->tf_eflags&=~(3<<12);
+                    print_trapframe(tf);
+                }
+            break;
+            default:break;
+        }
         break;
     //LAB1 CHALLENGE 1 : YOUR CODE you should modify below codes.
     case T_SWITCH_TOU:
-        if(tf->cs != USER_CS){
+        if(tf->tf_cs != USER_CS){
             // construct tmp structure for cpu to recover data with.
             struct trapframe tmp=*tf;
-            tmp.cs=USER_CS;
+            tmp.tf_cs=USER_CS;
             tmp.tf_ds=tmp.tf_es=tmp.tf_ss=USER_DS;
             // this operation causes priv level change. cpu will attempt to set esp from this tmp structure.
             // in this case, we can free the stack space taken by tf by setting the esp to the first of it.
@@ -186,7 +207,23 @@ trap_dispatch(struct trapframe *tf) {
         }
         break;
     case T_SWITCH_TOK:
-        panic("T_SWITCH_TOK unimplemented.\n");
+        if(tf->tf_cs != KERNEL_CS){
+            // in this case,tf contains all data we need.so we'll just modify at top of it.
+            tf->tf_cs=KERNEL_CS;
+            tf->tf_ds = tf->tf_es = tf->tf_ss = KERNEL_DS;
+            // set eflags.
+            tf->tf_eflags &= ~(3<<12);
+            // there's no need to change esp;since cpu won't detect priv change when returning.
+            // on contrast, we need to drop these data because if they left there, there's leaking.
+            // let's allocate some space at the top of stack..
+            struct trapframe *tmp=(struct trapframe*)(tf->tf_esp-sizeof(struct trapframe)+8);
+            // copy the data of tf to the space we alloc.
+            // since we doesn't know where tf is storaged at and the kernel will not restore esp at iret instruction,
+            // (because of no priv change (from interrupt ring0 to dest code seg ring0))
+            // this can help keeping the esp at the position that we expected.
+            memmove(tmp,tf,sizeof(struct trapframe)-8);
+            *((uint32_t*)tf-1)=(uint32_t)tmp;
+        }
         break;
     case IRQ_OFFSET + IRQ_IDE1:
     case IRQ_OFFSET + IRQ_IDE2:

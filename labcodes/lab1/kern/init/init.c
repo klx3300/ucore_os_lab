@@ -84,11 +84,13 @@ lab1_print_cur_status(void) {
 static void
 lab1_switch_to_user(void) {
     //LAB1 CHALLENGE 1 : TODO
+    asm volatile ("int $120");
 }
 
 static void
 lab1_switch_to_kernel(void) {
     //LAB1 CHALLENGE 1 :  TODO
+    asm volatile ("int $121");
 }
 
 static void
